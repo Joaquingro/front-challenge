@@ -1,14 +1,34 @@
 import React, { useRef, useState, useEffect } from "react";
 import Moveable from "react-moveable";
+import axios from 'axios';
+
 
 const App = () => {
   const [moveableComponents, setMoveableComponents] = useState([]);
   const [selected, setSelected] = useState(null);
+  const parentRef = useRef(null);
+  const moveableRef = useRef(null);
 
-  const addMoveable = () => {
+  const fetchImage = async () => {
+    try {
+      const response = await axios.get('https://jsonplaceholder.typicode.com/photos');
+      const photos = response.data;
+      const randomIndex = Math.floor(Math.random() * photos.length);
+      const randomPhoto = photos[randomIndex];
+      const imageUrl = randomPhoto.url;
+      const COLORS = imageUrl;
+      return COLORS;
+    } catch (error) {
+      console.log('Error fetching image:', error);
+    }
+  };
+  
+
+  const addMoveable = async () => {
     // Create a new moveable component and add it to the array
     const COLORS = ["red", "blue", "yellow", "green", "purple"];
-
+    const imageUrl = await fetchImage();
+    console.log(imageUrl);
     setMoveableComponents([
       ...moveableComponents,
       {
@@ -18,11 +38,14 @@ const App = () => {
         width: 100,
         height: 100,
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        updateEnd: true
+        updateEnd: true,
+        imageUrl: imageUrl,
+        originalWidth: 100,
+        originalHeight: 100,
       },
     ]);
   };
-
+  
   const updateMoveable = (id, newComponent, updateEnd = false) => {
     const updatedMoveables = moveableComponents.map((moveable, i) => {
       if (moveable.id === id) {
@@ -33,6 +56,12 @@ const App = () => {
     setMoveableComponents(updatedMoveables);
   };
 
+  const handleDelete = (index) => {
+    const updatedComponents = [...moveableComponents];
+    updatedComponents.splice(index, 1);
+    setMoveableComponents(updatedComponents);
+  };
+  
   const handleResizeStart = (index, e) => {
     console.log("e", e.direction);
     // Check if the resize is coming from the left handle
@@ -40,19 +69,51 @@ const App = () => {
     // 0 => center
     // -1 => top or left
     // 1 => bottom or right
-
+  
     // -1, -1
     // -1, 0
     // -1, 1
-    if (handlePosX === -1) {
-      console.log("width", moveableComponents, e);
-      // Save the initial left and width values of the moveable component
+  
+    // Save the initial left and width values of the moveable component
+    if (handlePosX === -1 || handlePosY === -1) {
       const initialLeft = e.left;
       const initialWidth = e.width;
-
-      // Set up the onResize event handler to update the left value based on the change in width
+      const initialTop = e.top;
+      const initialHeight = e.height;
+  
+      const onResize = (resizeEvent) => {
+        const newWidth = resizeEvent.width;
+        const newHeight = resizeEvent.height;
+        const widthDiff = newWidth - initialWidth;
+        const heightDiff = newHeight - initialHeight;
+        const topDiff = resizeEvent.top - initialTop;
+        const leftDiff = resizeEvent.left - initialLeft;
+        const newLeft = initialLeft + leftDiff;
+        const newTop = initialTop + topDiff;
+  
+        const parentElement = parentRef.current;
+        const parentRect = parentElement.getBoundingClientRect();
+        const leftLimit = parentRect.left;
+        const topLimit = parentRect.top;
+        const rightLimit = parentRect.right - newWidth;
+        const bottomLimit = parentRect.bottom - newHeight;
+  
+        let limitedLeft = Math.max(leftLimit, Math.min(newLeft, rightLimit));
+        let limitedTop = Math.max(topLimit, Math.min(newTop, bottomLimit));
+  
+        updateMoveable(index, {
+          left: limitedLeft,
+          top: limitedTop,
+          width: newWidth,
+          height: newHeight,
+        });
+      };
+  
+      // Establecer el manejador de eventos onResize en el elemento moveable
+      moveableRef.current.on("resize", onResize);
     }
   };
+  
 
   return (
     <main style={{ height : "100vh", width: "100vw" }}>
@@ -64,9 +125,11 @@ const App = () => {
           background: "black",
           height: "80vh",
           width: "80vw",
+          overflow: "hidden",
         }}
       >
         {moveableComponents.map((item, index) => (
+          <div style={{ position: "relative" }}>
           <Component
             {...item}
             key={index}
@@ -74,8 +137,25 @@ const App = () => {
             handleResizeStart={handleResizeStart}
             setSelected={setSelected}
             isSelected={selected === item.id}
+            style={{
+              maxHeight: "100%",
+              maxWidth: "100%",
+              backgroundImage: `url(${item.imageUrl})`,
+            }}
           />
-        ))}
+          <button
+             style={{
+              position: "absolute",
+              left: item.left + item.width + 10, // Ajusta el desplazamiento horizontal
+              top: item.top - 5, // Ajusta el desplazamiento vertical
+              zIndex: 9999
+            }}
+            onClick={() => handleDelete(index)}
+          >
+            X
+          </button>
+        </div>
+            ))}
       </div>
     </main>
   );
@@ -197,6 +277,7 @@ const Component = ({
           width: width,
           height: height,
           background: color,
+          overflow: "hidden"
         }}
         onClick={() => setSelected(id)}
       />
