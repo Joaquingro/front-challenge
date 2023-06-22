@@ -17,7 +17,7 @@ const App = () => {
       const randomPhoto = photos[randomIndex];
       const imageUrl = randomPhoto.url;
       const COLORS = imageUrl;
-      return COLORS;
+      return imageUrl;
     } catch (error) {
       console.log('Error fetching image:', error);
     }
@@ -69,13 +69,13 @@ const App = () => {
     // 0 => center
     // -1 => top or left
     // 1 => bottom or right
-  
+
     // -1, -1
     // -1, 0
     // -1, 1
-  
+    
     // Save the initial left and width values of the moveable component
-    if (handlePosX === -1 || handlePosY === -1) {
+    if (handlePosX === -1) {
       const initialLeft = e.left;
       const initialWidth = e.width;
       const initialTop = e.top;
@@ -109,11 +109,45 @@ const App = () => {
         });
       };
   
-      // Establecer el manejador de eventos onResize en el elemento moveable
+  
+
+  
+      moveableRef.current.on("resize", onResize);
+    } else if (handlePosY === -1) {
+      const initialTop = e.top;
+      const initialHeight = e.height;
+      const initialLeft = e.left;
+      const initialWidth = e.width;
+  
+      const onResize = (resizeEvent) => {
+        const newHeight = resizeEvent.height;
+        const newTop = resizeEvent.top;
+        const heightDiff = newHeight - initialHeight;
+        const topDiff = newTop - initialTop;
+        const newLeft = initialLeft;
+        const newWidth = initialWidth;
+  
+        const parentElement = parentRef.current;
+        const parentRect = parentElement.getBoundingClientRect();
+        const topLimit = parentRect.top;
+        const bottomLimit = parentRect.bottom - newHeight;
+        const leftLimit = parentRect.left;
+        const rightLimit = parentRect.right;
+  
+        let limitedTop = Math.max(topLimit, Math.min(newTop, bottomLimit));
+        let limitedLeft = Math.max(leftLimit, Math.min(newLeft, rightLimit));
+  
+        updateMoveable(index, {
+          top: limitedTop,
+          left: limitedLeft,
+          width: newWidth,
+          height: newHeight,
+        });
+      };
+  
       moveableRef.current.on("resize", onResize);
     }
   };
-  
 
   return (
     <main style={{ height : "100vh", width: "100vw" }}>
@@ -129,7 +163,8 @@ const App = () => {
         }}
       >
         {moveableComponents.map((item, index) => (
-          <div style={{ position: "relative" }}>
+          <div zIndex = "9999" style={{ position: "relative"}} 
+          >
           <Component
             {...item}
             key={index}
@@ -140,15 +175,15 @@ const App = () => {
             style={{
               maxHeight: "100%",
               maxWidth: "100%",
-              backgroundImage: `url(${item.imageUrl})`,
+              background: `url(${item.imageUrl})`,
             }}
           />
+           
           <button
              style={{
               position: "absolute",
-              left: item.left + item.width + 10, // Ajusta el desplazamiento horizontal
-              top: item.top - 5, // Ajusta el desplazamiento vertical
-              zIndex: 9999
+              left: item.left + item.width + 10, 
+              top: item.top,
             }}
             onClick={() => handleDelete(index)}
           >
